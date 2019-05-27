@@ -1,0 +1,9 @@
+{
+  "name": "config_aws_env",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "aws-sdk": "^2.422.0"
+  }
+}

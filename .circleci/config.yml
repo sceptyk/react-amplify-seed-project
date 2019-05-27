@@ -1,0 +1,102 @@
+version: 2
+
+# shared instructions
+deploy-steps: &deploy-steps
+  steps:
+    - checkout
+    - restore_cache:
+        keys:
+          - 'v1-node-modules-{{ checksum "yarn.lock" }}'
+    - run: yarn install
+    - save_cache:
+        paths:
+          - node_modules
+          - ~/.cache
+          - ~/.npm
+        key: 'v1-node-modules-{{ checksum "yarn.lock" }}'
+    - run:
+        name: Install amplify
+        command: yarn global add @aws-amplify/cli
+    - run:
+        name: Inject env vars
+        command: node scripts/inject_env_var dev
+    - deploy:
+        name: Deploy to AWS
+        command: node ./scripts/amplify_ci $NODE_ENV publish
+    - deploy:
+        name: Configure aws stack
+        command: |
+          cd scripts/config_aws_env
+          yarn install 
+          node index.js $NODE_ENV
+
+jobs:
+  build-test:
+    docker:
+      - image: cypress/base:8 # the Docker image with Cypress dependencies
+        environment:
+          TERM: xterm # this enables colors in the output
+          BROWSER: none
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - 'v1-node-modules-{{ checksum "yarn.lock" }}'
+      - run: yarn install
+      - save_cache:
+          paths:
+            - node_modules
+            - ~/.cache
+            - ~/.npm
+          key: 'v1-node-modules-{{ checksum "yarn.lock" }}'
+      - run:
+          name: Inject env vars
+          command: node scripts/inject_env_var dev
+      - run: yarn test:ci
+      - run: yarn build
+      - store_test_results:
+          path: cypress/results
+      - store_artifacts:
+          path: cypress/videos
+      - store_artifacts:
+          path: cypress/snapshots
+  deploy-dev:
+    docker:
+      - image: 'cypress/base:8'
+    environment:
+      NODE_ENV: dev
+    <<: *deploy-steps
+  deploy-prod:
+    docker:
+      - image: 'cypress/base:8'
+    environment:
+      NODE_ENV: prod
+    <<: *deploy-steps
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - build-test:
+          filters:
+            branches:
+              ignore: release*
+  deploy-dev:
+    jobs:
+      - deploy-dev:
+          filters:
+            branches:
+              only: master
+  deploy:
+    jobs:
+      - build-test:
+          filters:
+            branches:
+              only: release*
+      - approve:
+          type: approval
+          requires:
+            - build-test
+      - deploy-prod:
+          requires:
+            - approve

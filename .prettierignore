@@ -1,0 +1,3 @@
+amplify/**/*.json
+amplify/**/*.graphql
+src/aws-exports.js
