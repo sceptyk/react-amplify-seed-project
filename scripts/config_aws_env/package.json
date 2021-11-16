@@ -4,6 +4,6 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
-    "aws-sdk": "^2.422.0"
+    "aws-sdk": "^2.814.0"
   }
 }
